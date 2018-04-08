@@ -135,7 +135,7 @@ func Run(opts bootstrap.Options, discoveryOpts options.DiscoveryOptions, stop <-
 			if !ok {
 				workQueues[us.Name] = make(chan *workItem, maxThreadsPerUpstream)
 				// start worker thread for this upstream
-				go func(workQueues map[string]chan *workItem, usName string) {
+				go func(workQueue chan *workItem, usName string) {
 					log.Debugf("starting goroutine for %s", usName)
 					// allow upstream time to start up
 					time.Sleep(time.Second * 2)
@@ -143,7 +143,12 @@ func Run(opts bootstrap.Options, discoveryOpts options.DiscoveryOptions, stop <-
 						updateUpstream(work.upstream, work.secrets)
 					}
 					log.Debugf("exiting goroutine for %s", usName)
-				}(workQueues, us.Name)
+				}(workQueues[us.Name], us.Name)
+			}
+			select {
+				case workQueues[us.Name] <- &workItem{upstream: us, secrets: cache.secrets}:
+				default:
+					log.Warnf("Work Q for %s if full", us.Name)
 			}
 			workQueues[us.Name] <- &workItem{upstream: us, secrets: cache.secrets}
 		}
