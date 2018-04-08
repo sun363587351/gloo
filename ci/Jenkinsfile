@@ -42,13 +42,15 @@ volumes: [
             container('jenkins') {
                 echo 'Cloning repos'
                 sh '''#!/bin/bash -ex
-                    mkdir -p ${GOPATH}/src/github.com/solo-io/
-                    cd ${GOPATH}/src/github.com/solo-io/
+                    GITORG="solo-io"
+                    BRANCH="master"
                     #TODO(yuval-k): should we use SCM Checkout to support forks and brances?
-                    git clone https://github.com/solo-io/gloo 
-                    cd gloo
-                        (dep ensure -v -vendor-only || true)
-                    cd ..
+                    #TODO: receive branch and username as parameters
+                    mkdir -p ${GOPATH}/src/github.com/solo-io/
+                    cd ${GOPATH}/src/github.com/solo-io
+                    git clone -b $BRANCH https://github.com/$GITORG/gloo 
+                    cd ${GOPATH}/src/github.com/solo-io/gloo
+                    dep ensure -v -vendor-only
                 '''
             }
         }
