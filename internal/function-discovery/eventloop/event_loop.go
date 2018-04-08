@@ -161,7 +161,7 @@ func Run(opts bootstrap.Options, discoveryOpts options.DiscoveryOptions, stop <-
 			select {
 				case workQueues[us.Name] <- &workItem{upstream: us, secrets: cache.secrets}:
 				default:
-					log.Warnf("Work Q for %s if full", us.Name)
+					log.Warnf("Work Q for %s is full", us.Name)
 			}
 		}
 	}
