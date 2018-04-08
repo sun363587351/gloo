@@ -139,7 +139,20 @@ func Run(opts bootstrap.Options, discoveryOpts options.DiscoveryOptions, stop <-
 					log.Debugf("starting goroutine for %s", usName)
 					// allow upstream time to start up
 					time.Sleep(time.Second * 2)
-					for work := range workQueues[usName] {
+					for work := range workQueue {
+						// drain the Q
+						outerloop: 
+						for {
+							select {
+							case newWork, ok := <- workQueue:
+								if !ok {
+									return
+								}
+								work = newWork
+							default:
+								break outerloop
+							}
+						}
 						updateUpstream(work.upstream, work.secrets)
 					}
 					log.Debugf("exiting goroutine for %s", usName)
@@ -150,7 +163,6 @@ func Run(opts bootstrap.Options, discoveryOpts options.DiscoveryOptions, stop <-
 				default:
 					log.Warnf("Work Q for %s if full", us.Name)
 			}
-			workQueues[us.Name] <- &workItem{upstream: us, secrets: cache.secrets}
 		}
 	}
 
