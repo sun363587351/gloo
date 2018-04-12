@@ -138,6 +138,8 @@ func curl(opts curlOpts) (string, error) {
 		service = "test-ingress"
 	}
 	args = append(args, fmt.Sprintf("%v://%s:%v%s", protocol, service, port, opts.path))
+	// some defualt time outs to make sure curl is not stuck
+	args = append(args, "--connect-timeout", "5", "--max-time", "5")
 	log.Debugf("running: curl %v", strings.Join(args, " "))
 	return TestRunner(args...)
 }
