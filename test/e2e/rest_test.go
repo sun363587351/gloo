@@ -96,10 +96,10 @@ var _ = Describe("Swagger Function Discovery", func() {
 			}, "< HTTP/1.1 200", time.Minute*5)
 			curlEventuallyShouldRespond(curlOpts{
 				path: getPath + "/3",
-			}, "< HTTP/1.1 200", time.Minute*5)
+			}, "< HTTP/1.1 200")
 			curlEventuallyShouldRespond(curlOpts{
 				path: getPath + "/3",
-			}, `{"id":3,"name":"videogamedunkey"}`, time.Minute*5)
+			}, `{"id":3,"name":"videogamedunkey"}`)
 		})
 		It("using params: should route to the petstore function", func() {
 			curlEventuallyShouldRespond(curlOpts{
@@ -112,10 +112,10 @@ var _ = Describe("Swagger Function Discovery", func() {
 			}, "< HTTP/1.1 200", time.Minute*5)
 			curlEventuallyShouldRespond(curlOpts{
 				path: getPath + "/4",
-			}, "< HTTP/1.1 200", time.Minute*5)
+			}, "< HTTP/1.1 200")
 			curlEventuallyShouldRespond(curlOpts{
 				path: getPath + "/4",
-			}, `{"id":4,"name":"spatula"}`, time.Minute*5)
+			}, `{"id":4,"name":"spatula"}`)
 		})
 	})
 })
