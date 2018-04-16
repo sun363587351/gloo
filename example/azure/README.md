@@ -1,3 +1,6 @@
+## Alexa, Serverless, and Gloo
+
+
 1. Now for a quick demo showing how easy it is to migrate serverless functions
 between AWS, Google, and Microsoft Azure.
 
@@ -10,8 +13,11 @@ to the configured backend.
 
 <show>
 
-Socket hangup - that's because we haven't created a route yet. Let's
+Error - that's because we haven't created a route yet. Let's
 start with a route that invokes a Lambda function.
+
+
+## Lambda
 
 4.
 * First, I'll create an upstream object so to connect Gloo to my Amazon account.
@@ -55,6 +61,9 @@ glooctl route create \
 Awesome! We just invoked a lambda function
 with Alexa using Gloo.
 
+
+## Google Cloud Functions
+
 5. Let's change our route so Alexa can invoke a Google Cloud Function
 
 * First i'll need to connect Gloo to my Google Cloud account.
@@ -96,6 +105,8 @@ glooctl route create \
 <show>
 
 Pretty cool.
+
+## Azure
 
 6. One more time, but with Azure
 * Connect Gloo toy my Azure account.
@@ -146,7 +157,7 @@ clients, allowing seamless migration of serverless functions across clouds.
 
 
 
-Cleanup
+## Cleanup
 
 ```
 glooctl virtualhost delete default
@@ -156,57 +167,57 @@ glooctl upstream delete my-azure
 ```
 
 
-## lambda
+<!-- ## lambda -->
 
-glooctl secret create aws --name aws-lambda-us-east-1
+<!-- glooctl secret create aws --name aws-lambda-us-east-1 -->
 
-cat <<EOF | glooctl upstream create -f -
-name: my-aws
-type: aws
-spec:
-  region: us-east-1
-  secret_ref: aws-lambda-us-east-1
-EOF
+<!-- cat <<EOF | glooctl upstream create -f - -->
+<!-- name: my-aws -->
+<!-- type: aws -->
+<!-- spec: -->
+  <!-- region: us-east-1 -->
+  <!-- secret_ref: aws-lambda-us-east-1 -->
+<!-- EOF -->
 
 
-## gcf
+<!-- ## gcf -->
 
-kubectl create secret generic \
-    gcf-myproject-secret \
-    --from-literal \
-    json_key_file="$(cat ~/Downloads/k8s-cluster-64b10ee30dd0.json)"
+<!-- kubectl create secret generic \ -->
+    <!-- gcf-myproject-secret \ -->
+    <!-- --from-literal \ -->
+    <!-- json_key_file="$(cat ~/Downloads/k8s-cluster-64b10ee30dd0.json)" -->
 
-cat <<EOF | glooctl upstream create -f -
-name: my-google
-type: google
-spec:
-  region: us-east1
-  project_id: k8s-cluster-144619
-metadata:
-  annotations:
-    "gloo.solo.io/google_secret_ref": "gcf-myproject-secret"
-EOF
+<!-- cat <<EOF | glooctl upstream create -f - -->
+<!-- name: my-google -->
+<!-- type: google -->
+<!-- spec: -->
+  <!-- region: us-east1 -->
+  <!-- project_id: k8s-cluster-144619 -->
+<!-- metadata: -->
+  <!-- annotations: -->
+    <!-- "gloo.solo.io/google_secret_ref": "gcf-myproject-secret" -->
+<!-- EOF -->
 
-## azure
+<!-- ## azure -->
 
-kubectl create secret generic \
-    azure-funcs-secret \
-    --from-literal \
-    publish_profile="$(cat ~/Downloads/functions-g7ffnq4.PublishSettings)"
+<!-- kubectl create secret generic \ -->
+    <!-- azure-funcs-secret \ -->
+    <!-- --from-literal \ -->
+    <!-- publish_profile="$(cat ~/Downloads/functions-g7ffnq4.PublishSettings)" -->
 
-cat <<EOF | glooctl upstream create -f -
-name: my-azure
-type: azure
-spec:
-  function_app_name: functions-g7ffnq4
-metadata:
-  annotations:
-    "gloo.solo.io/azure_publish_profile": "azure-funcs-secret"
-EOF
+<!-- cat <<EOF | glooctl upstream create -f - -->
+<!-- name: my-azure -->
+<!-- type: azure -->
+<!-- spec: -->
+  <!-- function_app_name: functions-g7ffnq4 -->
+<!-- metadata: -->
+  <!-- annotations: -->
+    <!-- "gloo.solo.io/azure_publish_profile": "azure-funcs-secret" -->
+<!-- EOF -->
 
-## virtualhost
+<!-- ## virtualhost -->
 
-glooctl route create \
-    --path-exact /serverless-demo \
-    --upstream my-aws \
-    --function
+<!-- glooctl route create \ -->
+    <!-- --path-exact /serverless-demo \ -->
+    <!-- --upstream my-aws \ -->
+    <!-- --function -->
