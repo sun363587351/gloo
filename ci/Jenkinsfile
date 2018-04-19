@@ -6,6 +6,7 @@ containers: [
         image: 'soloio/jenkins:latest',
         ttyEnabled: true,
         alwaysPullImage: true,
+        privileged: true,
         command: 'cat'),
     containerTemplate(
         name: 'helm',
@@ -31,24 +32,31 @@ volumes: [
                 description: 'Skip testing stage',
                 name: 'SKIP_TESTS'),
             stringParam(
-                defaultValue: 'v0.1.6-125',
+                defaultValue: 'v0.1.6-127',
                 description: 'Image tag of envoy container to use',
                 name: 'ENVOY_IMAGE_TAG'),
         ])
     ])
 
     node('gloo-builder') {
+
         stage('init projects') {
             container('jenkins') {
                 echo 'Cloning repos'
                 sh '''#!/bin/bash -ex
-                    mkdir -p ${GOPATH}/src/github.com/solo-io/
-                    cd ${GOPATH}/src/github.com/solo-io/
+                    CODE=$PWD
+                    # GITORG="solo-io"
+                    # BRANCH="func-disc"
                     #TODO(yuval-k): should we use SCM Checkout to support forks and brances?
+                    #TODO: receive branch and username as parameters
+                    # checkout scm
                     git clone https://github.com/solo-io/gloo 
-                    cd gloo
-                        (dep ensure -v -vendor-only || true)
-                    cd ..
+
+                    mkdir -p ${GOPATH}/src/github.com/solo-io/gloo
+                    mount --bind $CODE/gloo ${GOPATH}/src/github.com/solo-io/gloo
+
+                    cd ${GOPATH}/src/github.com/solo-io/gloo
+                    dep ensure -v -vendor-only
                 '''
             }
         }
@@ -56,20 +64,92 @@ volumes: [
             container('jenkins') {
                 echo 'Running tests'
                 sh '''#!/bin/bash -ex
-                    mkdir -p ${HOME}/.kube/
-                    cp /etc/kube/* ${HOME}/.kube/
-                    mkdir -p ${HOME}/.aws/
-                    cp /etc/aws/* ${HOME}/.aws/
-                    cd ${GOPATH}/src/github.com/solo-io/gloo
-                    # echo "WARNING: REMOVING TESTS"
-                    # rm gloo/internal/control-plane/xds/*_test.go
-                    # rm gloo/pkg/secretwatcher/vault/*_test.go
-                    export DISABLE_COLOR=1
                     if [ "$SKIP_TESTS" != "true" ]; then
-                        export RUN_KUBE_TESTS=1
+
+# TODO: REMOVE (when tests that use it move to e2e)
+mkdir -p ${HOME}/.kube/
+cp /etc/kube/* ${HOME}/.kube/
+mkdir -p ${HOME}/.aws/
+cp /etc/aws/* ${HOME}/.aws/
+
+                        cd ${GOPATH}/src/github.com/solo-io/gloo
+                        export DISABLE_COLOR=1
                         # TODO: add console tests
                         # TODO: only run cover and race in unit tests and not in e2e (or anything else that is time sensitive)
-                        ginkgo -r --skipPackage xds,vault --noColor  --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace --race --progress pkg internal
+                        ginkgo -r --skipPackage xds,vault --noColor  --randomizeAllSpecs --randomizeSuites --failOnPending --cover --trace  --progress pkg internal
+                    fi
+                '''
+            }
+        }
+
+
+        stage('publish coverage') {
+            container('jenkins') {
+                sh '''#!/bin/bash -ex
+                #TODO: maybe change with ci/cover2html.sh ?
+
+                    REPORTDIR=$PWD
+
+                    cd ${GOPATH}/src/github.com/solo-io/gloo
+
+                    OUTPUTDIR=artifacts/coverage
+
+                    mkdir -p $OUTPUTDIR
+                    REPORT=$OUTPUTDIR/index.html
+
+                    MEGACOV=$OUTPUTDIR/megacov.megacoverprofile
+                    echo 'mode: atomic' > "$MEGACOV"
+
+                    echo "<html><body>" > $REPORT
+
+                    find . -name "*.coverprofile" -print0 | while read -d $'\0' file; do
+                        FDIR=$(dirname "$file")
+                        COVDIR=$OUTPUTDIR/$FDIR
+                        mkdir -p $COVDIR
+                        FNAME=$(basename $file)
+                        OUTFILE="$COVDIR/$FNAME".html
+                        go tool cover -html="$file" -o "$OUTFILE"
+                        tail --lines=+2 $file >> $MEGACOV
+                        echo '<div><a href="'$FDIR/$FNAME'.html">'$FNAME"</a>" >> $REPORT
+                        echo "<pre>" >> $REPORT
+                        go tool cover -func="$file" >> $REPORT
+                        echo "</pre></div>" >> $REPORT
+
+                    done
+
+                    echo "</body></html>" >> $REPORT
+
+                    go tool cover -html="$MEGACOV" -o $OUTPUTDIR/megacov.html
+
+                    # copy to workspace for publish html
+                    cd
+                    mkdir -p "$REPORTDIR/gloo"
+                    cp -r ${GOPATH}/src/github.com/solo-io/gloo/artifacts/ "$REPORTDIR/gloo"
+'''
+            }
+            publishHTML(target: [
+                allowMissing: false,
+                alwaysLinkToLastBuild: false,
+                keepAll: true,
+                reportDir: 'gloo/artifacts/coverage/',
+                reportFiles: 'index.html',
+                reportName: 'Coverage Report'
+                ])
+        }
+        stage('e2e tests') {
+            container('jenkins') {
+                echo 'Running tests'
+                sh '''#!/bin/bash -ex
+                    if [ "$SKIP_TESTS" != "true" ]; then
+                        mkdir -p ${HOME}/.kube/
+                        cp /etc/kube/* ${HOME}/.kube/
+                        mkdir -p ${HOME}/.aws/
+                        cp /etc/aws/* ${HOME}/.aws/
+                        cd ${GOPATH}/src/github.com/solo-io/gloo
+                        export DISABLE_COLOR=1
+                        export RUN_KUBE_TESTS=1
+                        # TODO: add console tests
+                        # No cover and race in unit tests in e2e (or anything else that is time sensitive)
                         ginkgo -r --noColor  --randomizeAllSpecs --randomizeSuites --failOnPending --trace --progress test
                     fi
                 '''
@@ -91,7 +171,6 @@ volumes: [
                         fi
                     done
 
-
                     # just re-tag and push new Envoy image
                     # use gloo's tag to tag envoy as well
                     #TODO(yuval-k): should we change this to build envoy?
@@ -102,6 +181,7 @@ volumes: [
                 '''
             }
         }
+        // TODO: Make publish optional if just running tests
         stage('push new install') {
             container('jenkins') {
                 sh '''#!/bin/bash -ex

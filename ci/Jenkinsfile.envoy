@@ -1,0 +1,113 @@
+#!/usr/bin/env groovy
+podTemplate(label: 'gloo-builder',
+containers: [
+    containerTemplate(
+        name: 'golang',
+        image: 'golang:1.10',
+        ttyEnabled: true,
+        command: 'cat'),
+    containerTemplate(
+        name: 'docker',
+        image: 'docker:17.12',
+        ttyEnabled: true,
+        command: 'cat'),
+    containerTemplate(
+        name: 'envoy-build',
+        image: 'envoyproxy/envoy-build-ubuntu@sha256:' + params.ENVOY_BUILD_CONTAINER,
+        ttyEnabled: true,
+        command: 'cat'),
+],
+envVars: [
+    envVar(key: 'DOCKER_CONFIG', value: '/etc/docker')
+],
+volumes: [
+    hostPathVolume(hostPath: '/var/run/docker.sock', mountPath: '/var/run/docker.sock'),
+    secretVolume(secretName: 'soloio-docker-hub', mountPath: '/etc/docker'),
+    secretVolume(secretName: 'soloio-github', mountPath: '/etc/github')
+]) {
+
+    properties([
+        parameters ([
+            stringParam(
+                defaultValue: '38483ee95cc03858db20281a663ce793d90c5353',
+                description: 'Commit hash for gloo',
+                name: 'GLOO_HASH'),
+            stringParam(
+                defaultValue: 'https://github.com/solo-io/gloo.git',
+                description: 'Gloo repo',
+                name: 'GLOO_REPO'),
+            stringParam(
+                defaultValue: '969d3a5c6db3d014ff2a8fa1718a24155222a79f',
+                description: '',
+                name: 'ENVOY_HASH'),
+            stringParam(
+                defaultValue: 'envoyproxy',
+                description: '',
+                name: 'ENVOY_USER'),
+            stringParam(
+                defaultValue: '0bcb75a8dcffe7c6cca87c87a04fc8d1259c2e7156cde8255b9a8e287fd8f8b0',
+                description: 'Envoy build container sha256',
+                name: 'ENVOY_BUILD_CONTAINER'),
+            stringParam(
+                defaultValue: '2bc9569aec056df65bb4f67f0c47be968cac6256',
+                description: 'Envoy common hash',
+                name: 'ENVOY_COMMON_HASH'),
+        ])
+    ])
+
+    node('gloo-builder') {
+        stage('thetool') {
+            container('golang') {
+                echo 'Initialize thetool...' 
+                sh '''
+                    go get -u github.com/solo-io/thetool
+                    CGO_ENABLED=0 go install -a -ldflags '-extldflags "-static"' github.com/solo-io/thetool
+                    mkdir thetool-work
+                    cd thetool-work
+                    cp ${GOPATH}/bin/thetool .
+                    thetool init --gloo-hash $GLOO_HASH  --envoy-hash $ENVOY_HASH --envoy-common-hash $ENVOY_COMMON_HASH --envoy-repo-user $ENVOY_USER
+                    # edit json for build container
+                    sed -ie 's@"envoyBuilderHash"\\s*:\\s*".*"@ "envoyBuilderHash": "'$ENVOY_BUILD_CONTAINER'"@' thetool.json
+
+                    ./thetool build envoy -d -v --publish=false
+                    # ./thetool build gloo -d -v --publish=false
+                '''
+            }
+        }
+
+        stage('Build Envoy') {
+            container('envoy-build') {
+                echo 'Building envoy...'
+                sh '''
+                    cd thetool-work/repositories
+                    ln -s `pwd` /repositories
+                    cd ../envoy
+                    ln -s `pwd` /source
+                    cd /source
+                    ./build-envoy.sh
+                    #TODO add test
+                '''
+            }
+        }
+
+        stage('Publish Envoy Docker Image') {
+            echo 'Publishing Envoy Docker Image'
+            container('docker') {
+                sh '''
+                    cd thetool-work
+                    export BASE=`pwd`
+                    if [ -n "$GLOO_VERSION" ]; then
+                      export TAG=$GLOO_VERSION-$BUILD_NUMBER
+                    else
+                      export TAG=v0.1.9-$BUILD_NUMBER
+                    fi
+                    cd envoy/envoy-out
+                    docker build -t soloio/envoy:$TAG .
+                    docker tag soloio/envoy:$TAG soloio/envoy:latest
+                    docker push soloio/envoy:$TAG
+                    docker push soloio/envoy:latest
+                '''
+            }
+        }
+    }
+}
