@@ -6,6 +6,11 @@ import (
 
 	"time"
 
+	"bytes"
+	"context"
+	"io/ioutil"
+	"net/http"
+
 	"github.com/hashicorp/consul/api"
 	vaultapi "github.com/hashicorp/vault/api"
 	. "github.com/onsi/ginkgo"
@@ -37,7 +42,7 @@ func TestConsul(t *testing.T) {
 		}
 		addr, err := helpers.ConsulServiceAddress("ingress", "admin")
 		if err == nil {
-			configDump, err := helpers.Curl(addr, helpers.CurlOpts{Path: "/config_dump"})
+			configDump, err := helpers.Curl(addr, helpers.HttpOpts{Path: "/config_dump"})
 			if err == nil {
 				logs += "\n\n\n" + configDump + "\n\n\n"
 			}
@@ -63,6 +68,8 @@ var (
 
 	gloo    storage.Interface
 	secrets dependencies.SecretStorage
+
+	ingressAddrHttp string
 
 	err error
 )
@@ -104,6 +111,8 @@ var _ = BeforeSuite(func() {
 
 	err = utils.SetupNomadForE2eTest(nomadInstance, true)
 	helpers.Must(err)
+	ingressAddrHttp, err = helpers.ConsulServiceAddress("ingress", "http")
+	helpers.Must(err)
 })
 
 var _ = AfterSuite(func() {
@@ -121,3 +130,36 @@ var _ = AfterSuite(func() {
 	nomadFactory.Clean()
 
 })
+
+// only meant for http, for https use curl
+func expectHttpResponse(opts helpers.HttpOpts, expectedStatus int, expectedBody string, timeout time.Duration) {
+	var (
+		body string
+	)
+
+	Eventually(func() (int, error) {
+		req, err := http.NewRequest(opts.Method, "http://"+ingressAddrHttp+opts.Path, bytes.NewBufferString(opts.Body))
+		helpers.Must(err)
+		ctx, cancel := context.WithTimeout(req.Context(), timeout/time.Duration(5))
+		defer cancel()
+
+		req = req.WithContext(ctx)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return 0, err
+		}
+		b, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return 0, err
+		}
+
+		body = string(b)
+		log.Debugf("got response body: %v", body)
+
+		defer res.Body.Close()
+
+		return res.StatusCode, nil
+	}, timeout, "2s").Should(Equal(expectedStatus))
+
+	Expect(body).To(ContainSubstring(expectedBody))
+}

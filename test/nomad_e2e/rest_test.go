@@ -90,32 +90,29 @@ var _ = Describe("Swagger Function Discovery", func() {
 			gloo.V1().VirtualHosts().Delete(vhostName)
 		})
 		It("should route to the petstore function", func() {
-			CurlEventuallyShouldRespond(CurlOpts{
+			expectHttpResponse(HttpOpts{
 				Path: functionPath,
 				Body: `{"id": 3, "tag": "donkey", "name": "videogamedunkey"}`,
-			}, "< HTTP/1.1 200", time.Second*30)
-			CurlEventuallyShouldRespond(CurlOpts{
+			}, 200, "", time.Second*30)
+			expectHttpResponse(HttpOpts{
 				Path: getPath + "/3",
-			}, "< HTTP/1.1 200", time.Second*5)
-			CurlEventuallyShouldRespond(CurlOpts{
+			}, 200, "", time.Second*5)
+			expectHttpResponse(HttpOpts{
 				Path: getPath + "/3",
-			}, `{"id":3,"name":"videogamedunkey"}`, time.Second*5)
+			}, 200, `{"id":3,"name":"videogamedunkey"}`, time.Second*5)
 		})
 		It("using params: should route to the petstore function", func() {
-			CurlEventuallyShouldRespond(CurlOpts{
+			expectHttpResponse(HttpOpts{
 				Path: functionPathWithParams,
 				Headers: map[string]string{
 					"x-id":   "4",
 					"x-name": "spatula",
 					"x-tag":  "dolphin",
 				},
-			}, "< HTTP/1.1 200", time.Second*45)
-			CurlEventuallyShouldRespond(CurlOpts{
+			}, 200, "", time.Second*45)
+			expectHttpResponse(HttpOpts{
 				Path: getPath + "/4",
-			}, "< HTTP/1.1 200", time.Second*45)
-			CurlEventuallyShouldRespond(CurlOpts{
-				Path: getPath + "/4",
-			}, `{"id":4,"name":"spatula"}`, time.Second*15)
+			}, 200, `{"id":4,"name":"spatula"}`, time.Second*15)
 		})
 	})
 })

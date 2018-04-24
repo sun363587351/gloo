@@ -9,25 +9,25 @@ import (
 	"github.com/solo-io/gloo/pkg/log"
 )
 
-type CurlOpts struct {
-	Protocol string
-	Path     string
-	Method   string
-	Host     string
-	CaFile   string
-	Body     string
-	Headers  map[string]string
+type HttpOpts struct {
+	Scheme  string
+	Path    string
+	Method  string
+	Host    string
+	CaFile  string
+	Body    string
+	Headers map[string]string
 }
 
-func CurlEventuallyShouldRespond(opts CurlOpts, substr string, timeout ...time.Duration) {
+func CurlEventuallyShouldRespond(opts HttpOpts, substr string, timeout ...time.Duration) {
 	t := time.Second * 20
 	if len(timeout) > 0 {
 		t = timeout[0]
 	}
 
 	scheme := "http"
-	if opts.Protocol != "" {
-		scheme = opts.Protocol
+	if opts.Scheme != "" {
+		scheme = opts.Scheme
 	}
 
 	addr, err := ConsulServiceAddress("ingress", scheme)
@@ -53,7 +53,7 @@ func CurlEventuallyShouldRespond(opts CurlOpts, substr string, timeout ...time.D
 	}, t, "5s").Should(ContainSubstring(substr))
 }
 
-func Curl(addr string, opts CurlOpts) (string, error) {
+func Curl(addr string, opts HttpOpts) (string, error) {
 	args := []string{"-v", "--connect-timeout", "10", "--max-time", "10"}
 
 	if opts.Method != "GET" && opts.Method != "" {
@@ -72,7 +72,7 @@ func Curl(addr string, opts CurlOpts) (string, error) {
 	for h, v := range opts.Headers {
 		args = append(args, "-H", fmt.Sprintf("%v: %v", h, v))
 	}
-	protocol := opts.Protocol
+	protocol := opts.Scheme
 	if protocol == "" {
 		protocol = "http"
 	}

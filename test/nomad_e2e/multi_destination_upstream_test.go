@@ -4,7 +4,6 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/pborman/uuid"
 	"github.com/solo-io/gloo/pkg/api/types/v1"
 	. "github.com/solo-io/gloo/test/helpers"
 )
@@ -13,7 +12,7 @@ var _ = Describe("Multiple Upstream Destinations", func() {
 	const helloService = "helloservice"
 	const helloService2 = "helloservice-2"
 	Context("creating a vhost route with mutliple upstream destinations", func() {
-		randomPath := "/" + uuid.New()
+		path := "/switcher"
 		vhostName := "multidestinationroute"
 		BeforeEach(func() {
 			_, err = gloo.V1().VirtualHosts().Create(&v1.VirtualHost{
@@ -22,7 +21,7 @@ var _ = Describe("Multiple Upstream Destinations", func() {
 					Matcher: &v1.Route_RequestMatcher{
 						RequestMatcher: &v1.RequestMatcher{
 							Path: &v1.RequestMatcher_PathExact{
-								PathExact: randomPath,
+								PathExact: path,
 							},
 							Verbs: []string{"GET"},
 						},
@@ -57,8 +56,8 @@ var _ = Describe("Multiple Upstream Destinations", func() {
 			gloo.V1().VirtualHosts().Delete(vhostName)
 		})
 		It("should balance requests between the two destinations", func() {
-			CurlEventuallyShouldRespond(CurlOpts{Path: randomPath}, "expected-reply-1", time.Second*35)
-			CurlEventuallyShouldRespond(CurlOpts{Path: randomPath}, "expected-reply-2", time.Second*35)
+			expectHttpResponse(HttpOpts{Path: path}, 200, "expected-reply-1", time.Second*35)
+			expectHttpResponse(HttpOpts{Path: path}, 200, "expected-reply-2", time.Second*35)
 		})
 	})
 })

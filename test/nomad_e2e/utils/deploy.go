@@ -106,7 +106,7 @@ func SetupNomadForE2eTest(nomadInstance *localhelpers.NomadInstance, buildImages
 		return nil
 	}, make(chan struct{}))
 
-	_, err = helpers.Curl(ingressAddr, helpers.CurlOpts{Path: "/logging?config=debug"})
+	_, err = helpers.Curl(ingressAddr, helpers.HttpOpts{Path: "/logging?config=debug"})
 	return err
 }
 

@@ -48,14 +48,10 @@ var _ = Describe("Function Discovery for NATS upstream", func() {
 			gloo.V1().VirtualHosts().Delete(vhostName)
 		})
 		It("should route to the nats topic", func() {
-			//messageBuffer, done, err := readNatsMessage(namespace, natsTopic)
-			//Expect(err).NotTo(HaveOccurred())
-			//defer close(done)
-			CurlEventuallyShouldRespond(CurlOpts{
+			expectHttpResponse(HttpOpts{
 				Path: natsPath,
 				Body: `{"some": "data"}`,
-			}, "< HTTP/1.1 200", time.Second*30)
-			//Expect(messageBuffer.String()).To(ContainSubstring(`{"some": "data"}`))
+			}, 200, "", time.Second*30)
 		})
 	})
 })

@@ -72,7 +72,7 @@ var _ = Describe("SNI Virtualhost", func() {
 			gloo.V1().VirtualHosts().Delete(vhostName)
 		})
 		It("should get a 200ok on the ssl port (8443)", func() {
-			CurlEventuallyShouldRespond(CurlOpts{Host: "test-ingress", Protocol: "https", Path: path, CaFile: ServerCert()}, "< HTTP/1.1 200", time.Second*35)
+			CurlEventuallyShouldRespond(HttpOpts{Host: "test-ingress", Scheme: "https", Path: path, CaFile: ServerCert()}, "< HTTP/1.1 200", time.Second*35)
 		})
 	})
 })

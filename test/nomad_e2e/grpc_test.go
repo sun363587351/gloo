@@ -43,12 +43,9 @@ var _ = Describe("GRPC Function Discovery", func() {
 			gloo.V1().VirtualHosts().Delete(vhostName)
 		})
 		It("should route to the grpc function", func() {
-			CurlEventuallyShouldRespond(CurlOpts{
+			expectHttpResponse(HttpOpts{
 				Path: listPath,
-			}, "< HTTP/1.1 200", time.Second*30)
-			CurlEventuallyShouldRespond(CurlOpts{
-				Path: listPath,
-			}, "{}", time.Second*15)
+			}, 200, "{}", time.Second*35)
 		})
 	})
 })
