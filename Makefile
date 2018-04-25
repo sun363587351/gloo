@@ -41,14 +41,13 @@ $(GENERATED_PROTO_FILES): $(PROTOS)
 	./*.proto
 
 # kubernetes custom clientsets
-clientset: $(GENERATED_PROTO_FILES)
+.PHONY: clientset
+clientset: $(GENERATED_PROTO_FILES) $(SOURCES)
 	cd ${GOPATH}/src/k8s.io/code-generator && \
 	./generate-groups.sh all \
 		$(PACKAGE_PATH)/pkg/storage/crd/client \
 		$(PACKAGE_PATH)/pkg/storage/crd \
 		"solo.io:v1"
-
-
 
 $(OUTPUT):
 	mkdir -p $(OUTPUT)
