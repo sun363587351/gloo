@@ -25,7 +25,7 @@ import (
 	"github.com/solo-io/gloo/test/helpers"
 )
 
-const defualtNomadDockerImage = "djenriquez/nomad"
+const defualtNomadDockerImage = "djenriquez/nomad@sha256:31f63da9ad07b349e02f5d71bd3def416bac72cfcfd79323fd2e99abaaccdd0f"
 
 type NomadFactory struct {
 	nomadpath string
